@@ -3,10 +3,10 @@
     'Microsoft.PowerShell.PSResourceGet' = @{
         Version = 'latest'
     }
-    PSDependOptions                      = @{
+    PSDependOptions    = @{
         Target = 'CurrentUser'
     }
-    'Pester'                             = @{
+    'Pester'           = @{
         Version    = '5.6.1'
         Parameters = @{
             SkipPublisherCheck = $true
@@ -15,13 +15,10 @@
     'psake'                              = @{
         Version = 'latest'
     }
-    'InvokeBuild'                        = @{
+    'Invoke-Build'                       = @{
         Version = 'latest'
     }
     'BuildHelpers'                       = @{
-        Version = 'latest'
-    }
-    'Plaster'                            = @{
         Version = 'latest'
     }
     'PowerShellBuild'                    = @{

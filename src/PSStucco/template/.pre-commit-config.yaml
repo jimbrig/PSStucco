@@ -1,0 +1,152 @@
+# Pre-commit hooks for PowerShell module development
+# See https://pre-commit.com for more information
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-yaml
+        exclude: ^(\.devcontainer/|\.github/workflows/)
+      - id: check-json
+      - id: pretty-format-json
+        args: ['--autofix', '--indent=2']
+      - id: check-xml
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: detect-private-key
+
+  # PowerShell specific checks
+  - repo: local
+    hooks:
+      - id: powershell-scriptanalyzer
+        name: PowerShell Script Analyzer
+        entry: pwsh
+        language: system
+        files: \.(ps1|psm1|psd1)$
+        args:
+          - -NoProfile
+          - -Command
+          - |
+            $files = $args | Where-Object { $_ -match '\.(ps1|psm1|psd1)$' }
+            if ($files) {
+              $results = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings PSGallery }
+              if ($results) {
+                $results | Format-Table -AutoSize
+                exit 1
+              }
+            }
+
+      - id: powershell-format
+        name: PowerShell Code Formatting
+        entry: pwsh
+        language: system
+        files: \.(ps1|psm1)$
+        args:
+          - -NoProfile
+          - -Command
+          - |
+            $files = $args | Where-Object { $_ -match '\.(ps1|psm1)$' }
+            foreach ($file in $files) {
+              $content = Get-Content -Path $file -Raw
+              $formatted = Invoke-Formatter -ScriptDefinition $content -Settings @{
+                IncludeRules = @('*')
+                Rules = @{
+                  PSPlaceOpenBrace = @{
+                    Enable = $true
+                    OnSameLine = $true
+                    NewLineAfter = $true
+                    IgnoreOneLineBlock = $true
+                  }
+                  PSPlaceCloseBrace = @{
+                    Enable = $true
+                    NewLineAfter = $true
+                    IgnoreOneLineBlock = $true
+                  }
+                  PSUseConsistentIndentation = @{
+                    Enable = $true
+                    Kind = 'space'
+                    PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
+                    IndentationSize = 4
+                  }
+                  PSUseConsistentWhitespace = @{
+                    Enable = $true
+                    CheckInnerBrace = $true
+                    CheckOpenBrace = $true
+                    CheckOpenParen = $true
+                    CheckOperator = $true
+                    CheckPipe = $true
+                    CheckPipeForRedundantWhitespace = $false
+                    CheckSeparator = $true
+                    CheckParameter = $false
+                  }
+                }
+              }
+              if ($formatted -ne $content) {
+                Set-Content -Path $file -Value $formatted -NoNewline
+                Write-Host "Formatted: $file"
+              }
+            }
+
+      - id: powershell-tests
+        name: PowerShell Unit Tests
+        entry: pwsh
+        language: system
+        files: \.(ps1|psm1|psd1)$
+        pass_filenames: false
+        args:
+          - -NoProfile
+          - -Command
+          - |
+            if (Get-ChildItem -Path tests -Filter *.tests.ps1 -ErrorAction SilentlyContinue) {
+              $result = Invoke-Pester -Path tests -PassThru -Quiet
+              if ($result.FailedCount -gt 0) {
+                Write-Host "Tests failed: $($result.FailedCount)/$($result.TotalCount)" -ForegroundColor Red
+                exit 1
+              }
+              Write-Host "Tests passed: $($result.PassedCount)/$($result.TotalCount)" -ForegroundColor Green
+            }
+
+  # Security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(\.git/|\.vscode/|out/|coverage/)
+
+  # Documentation checks
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix']
+        exclude: ^(CHANGELOG\.md|docs/api/)
+
+  # Git hooks
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [optional-scope]
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

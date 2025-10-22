@@ -1,0 +1,37 @@
+{
+    // See http://go.microsoft.com/fwlink/?LinkId=827846
+    // for the documentation about the extensions.json format
+    "recommendations": [
+        // PowerShell Development
+        "ms-vscode.powershell",
+        // Documentation and Markdown
+        "davidanson.vscode-markdownlint",
+        "yzhang.markdown-all-in-one",
+        "shd101wyy.markdown-preview-enhanced",
+        // Git and Version Control
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "github.copilot",
+        "github.copilot-chat",
+        // Code Quality and Formatting
+        "streetsidesoftware.code-spell-checker",
+        "editorconfig.editorconfig",
+        "ms-vscode.vscode-json",
+        // Testing and Coverage
+        "ryanluker.vscode-coverage-gutters",
+        // DevOps and CI/CD
+        "ms-azure-devops.azure-pipelines",
+        "github.vscode-github-actions",
+        // Container Development
+        "ms-vscode-remote.remote-containers",
+        "ms-azuretools.vscode-docker",
+        // Security
+        "ms-vscode.vscode-sarif-viewer",
+        // Productivity
+        "ms-vscode.remote-repositories",
+        "github.remotehub",
+        "ms-vscode.hexeditor",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+    ]
+}

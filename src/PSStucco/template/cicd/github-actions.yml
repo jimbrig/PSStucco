@@ -1,0 +1,129 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore: [ '**.md' ]
+  pull_request:
+    branches: [ main ]
+    paths-ignore: [ '**.md' ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }} with PowerShell ${{ matrix.version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        version: ['7.4', '7.3']
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup PowerShell
+      shell: pwsh
+      run: |
+        if ('${{ matrix.version }}' -ne '7.4') {
+          $url = "https://github.com/PowerShell/PowerShell/releases/download/v${{ matrix.version }}.0/powershell-${{ matrix.version }}.0-linux-x64.tar.gz"
+          if ('${{ matrix.os }}' -eq 'windows-latest') {
+            $url = "https://github.com/PowerShell/PowerShell/releases/download/v${{ matrix.version }}.0/PowerShell-${{ matrix.version }}.0-win-x64.msi"
+          } elseif ('${{ matrix.os }}' -eq 'macOS-latest') {
+            $url = "https://github.com/PowerShell/PowerShell/releases/download/v${{ matrix.version }}.0/powershell-${{ matrix.version }}.0-osx-x64.tar.gz"
+          }
+          Write-Host "Installing PowerShell ${{ matrix.version }} from $url"
+        }
+
+    - name: Cache PowerShell Modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.local/share/powershell/Modules
+          ~/Documents/PowerShell/Modules
+          C:\Users\runneradmin\Documents\PowerShell\Modules
+        key: ${{ runner.os }}-PSModules-${{ hashFiles('**/requirements.psd1') }}
+        restore-keys: |
+          ${{ runner.os }}-PSModules-
+
+    - name: Bootstrap Build Dependencies
+      shell: pwsh
+      run: ./build.ps1 -Bootstrap -Verbose
+
+    - name: Run Tests
+      shell: pwsh
+      run: ./build.ps1 -Task Test -Verbose
+
+    - name: Run Script Analyzer
+      shell: pwsh
+      run: ./build.ps1 -Task Analyze -Verbose
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.version }}
+        path: |
+          out/testResults.xml
+          out/testResults.json
+          out/coverage.xml
+
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: matrix.os == 'ubuntu-latest' && matrix.version == '7.4'
+      with:
+        file: out/coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Run PSScriptAnalyzer SARIF
+      shell: pwsh
+      run: |
+        Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+        Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSGallery -ReportSummary -Format Sarif -OutputPath security-results.sarif
+
+    - name: Upload SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: security-results.sarif
+
+  publish:
+    name: Publish to PowerShell Gallery
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'release'
+    environment: Production
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Bootstrap Build Dependencies
+      shell: pwsh
+      run: ./build.ps1 -Bootstrap -Verbose
+
+    - name: Build Module
+      shell: pwsh
+      run: ./build.ps1 -Task Build -Verbose
+
+    - name: Publish to PowerShell Gallery
+      shell: pwsh
+      env:
+        PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+      run: ./build.ps1 -Task Publish -Verbose

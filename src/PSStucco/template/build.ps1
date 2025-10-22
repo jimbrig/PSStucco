@@ -5,18 +5,18 @@ param(
     # Build task(s) to execute
     [Parameter(ParameterSetName = 'Task', Position = 0)]
     [ArgumentCompleter({
-            param($Command, $Parameter, $WordToComplete, $CommandAst, $FakeBoundParams)
-            $psakeFile = './psakeFile.ps1'
-            switch ($Parameter) {
-                'Task' {
-                    if ([string]::IsNullOrEmpty($WordToComplete)) {
-                        Get-PSakeScriptTasks -BuildFile $psakeFile | Select-Object -ExpandProperty Name
-                    } else {
-                        Get-PSakeScriptTasks -BuildFile $psakeFile |
+        param($Command, $Parameter, $WordToComplete, $CommandAst, $FakeBoundParams)
+        $psakeFile = './psakeFile.ps1'
+        switch ($Parameter) {
+            'Task' {
+                if ([string]::IsNullOrEmpty($WordToComplete)) {
+                    Get-PSakeScriptTasks -BuildFile $psakeFile | Select-Object -ExpandProperty Name
+                } else {
+                    Get-PSakeScriptTasks -BuildFile $psakeFile |
                         Where-Object { $_.Name -match $WordToComplete } |
                         Select-Object -ExpandProperty Name
-                    }
                 }
+            }
                 Default { }
             }
         })]
@@ -26,13 +26,13 @@ param(
     [switch]$Bootstrap,
 
     # List available build tasks
-    [Parameter(ParameterSetName = 'Help')]
-    [switch]$Help,
-
-    [PSCredential]$PSGalleryApiKey,
+    [Parameter(ParameterSetName = 'Help')]    [switch]$Help,
 
     # Optional properties to pass to psake
     [hashtable]$Properties,
+
+    # Optional parameters to pass to psake
+    [hashtable]$Parameters,
 
     # Force reinstall of dependencies
     [switch]$Force,
@@ -44,7 +44,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# Modern PowerShell bootstrap function using PSResourceGet (with PowerShellGet fallback for PSResourceGet installation only)
+# Modern PowerShell bootstrap function using PSResourceGet
 function Initialize-ModernBuildEnvironment {
     [CmdletBinding()]
     param(
@@ -90,7 +90,8 @@ function Initialize-ModernBuildEnvironment {
         # Load requirements
         $requirementsPath = Join-Path $PSScriptRoot 'requirements.psd1'
         if (-not (Test-Path $requirementsPath)) {
-            throw "Requirements file not found: $requirementsPath"
+            Write-Warning "Requirements file not found: $requirementsPath. Skipping dependency installation."
+            return $true
         }
 
         $requirements = Import-PowerShellDataFile -Path $requirementsPath
@@ -140,8 +141,10 @@ function Initialize-ModernBuildEnvironment {
         $criticalModules = @('psake', 'BuildHelpers', 'Pester', 'PSScriptAnalyzer')
         foreach ($module in $criticalModules) {
             try {
-                Import-Module $module -Force -Global
-                Write-Host "✅ Imported: $module" -ForegroundColor Green
+                if (Get-Module $module -ListAvailable) {
+                    Import-Module $module -Force -Global
+                    Write-Host "✅ Imported: $module" -ForegroundColor Green
+                }
             } catch {
                 Write-Warning "Failed to import module '$module': $($_.Exception.Message)"
             }
@@ -155,81 +158,43 @@ function Initialize-ModernBuildEnvironment {
     }
 }
 
-# Main execution logic
+# Bootstrap dependencies
+if ($Bootstrap.IsPresent) {
+    $initResult = Initialize-ModernBuildEnvironment -Force:$Force -Prerelease:$Prerelease
+    if (-not $initResult) {
+        throw 'Bootstrap failed'
+    }
+}
+
+# Execute psake task(s)
+$psakeFile = Join-Path $PSScriptRoot 'psakeFile.ps1'
+
 try {
-    # Bootstrap dependencies if requested
-    if ($Bootstrap.IsPresent) {
-        $initResult = Initialize-ModernBuildEnvironment -Force:$Force -Prerelease:$Prerelease
-        if (-not $initResult) {
-            throw 'Bootstrap failed'
-        }
-    }
-
-    # Execute psake task(s)
-    $psakeFile = Join-Path $PSScriptRoot 'psakeFile.ps1'
-
-    # Ensure BuildHelpers-related environment variables point to the src/ manifest
-    # Some modules (e.g., PowerShellBuild) may load during task discovery and expect these.
-    $defaultManifest = Join-Path $PSScriptRoot 'src/PSStucco/PSStucco.psd1'
-    if (-not $env:BHPSModuleManifest -or -not (Test-Path $env:BHPSModuleManifest)) {
-        if (Test-Path $defaultManifest) {
-            $env:BHPSModuleManifest = $defaultManifest
-            if (-not $env:BHProjectName) { $env:BHProjectName = 'PSStucco' }
-        }
-    }
-
-    if ($Help.IsPresent) {
+    if ($PSCmdlet.ParameterSetName -eq 'Help') {
         # Display available tasks
-        Write-Host '🔍 Available build tasks:' -ForegroundColor Cyan
+        Write-Host "🔍 Available build tasks:" -ForegroundColor Cyan
         Get-PSakeScriptTasks -BuildFile $psakeFile |
-        Format-Table -Property Name, Description, Alias, DependsOn -AutoSize
+            Format-Table -Property Name, Description, Alias, DependsOn -AutoSize
     } else {
         # Ensure BuildHelpers environment is set
         if (Get-Module BuildHelpers -ListAvailable) {
             Set-BuildEnvironment -Force
         }
 
-        # Point BuildHelpers to the module manifest in src/ if not already resolved
-        $defaultManifest = Join-Path $PSScriptRoot 'src/PSStucco/PSStucco.psd1'
-        if (-not $env:BHPSModuleManifest -or -not (Test-Path $env:BHPSModuleManifest)) {
-            if (Test-Path $defaultManifest) {
-                $env:BHPSModuleManifest = $defaultManifest
-                $env:BHProjectName = 'PSStucco'
-            }
-        }
-
-        # Prepare psake parameters
-        $psakeParameters = @{
-            buildFile = $psakeFile
-            taskList  = $Task
-            nologo    = $true
-        }
-
-        if ($PSGalleryApiKey) {
-            $psakeParameters.parameters = @{ galleryApiKey = $PSGalleryApiKey }
-        }
-
-        if ($Properties) {
-            if ($psakeParameters.parameters) {
-                $psakeParameters.parameters += $Properties
-            } else {
-                $psakeParameters.parameters = $Properties
-            }
-        }
-
         Write-Host "🚀 Executing psake tasks: $($Task -join ', ')" -ForegroundColor Cyan
-        Invoke-psake @psakeParameters
+        Invoke-psake -BuildFile $psakeFile -TaskList $Task -NoLogo -Properties $Properties -Parameters $Parameters
 
         # Exit with appropriate code
         $exitCode = [int](-not $psake.build_success)
         if ($exitCode -eq 0) {
-            Write-Host '✅ Build completed successfully!' -ForegroundColor Green
+            Write-Host "✅ Build completed successfully!" -ForegroundColor Green
         } else {
-            Write-Host '❌ Build failed!' -ForegroundColor Red
+            Write-Host "❌ Build failed!" -ForegroundColor Red
         }
         exit $exitCode
     }
-} catch {
+}
+catch {
     Write-Error "Build script failed: $($_.Exception.Message)"
     exit 1
 }

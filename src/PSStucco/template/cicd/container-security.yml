@@ -1,0 +1,65 @@
+name: Container Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '.devcontainer/**'
+      - 'Dockerfile*'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.devcontainer/**'
+      - 'Dockerfile*'
+  schedule:
+    # Run security scan weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Build DevContainer Image
+      run: |
+        docker build -t psstucco-devcontainer:latest .devcontainer/
+
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'psstucco-devcontainer:latest'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy Results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Docker Scout
+      uses: docker/scout-action@v1
+      if: always()
+      with:
+        command: cves
+        image: psstucco-devcontainer:latest
+        only-severities: critical,high
+        exit-code: true
+
+    - name: Check for Secrets in Container
+      run: |
+        docker run --rm -v "$PWD":/workspace \
+          trufflesecurity/trufflehog:latest \
+          filesystem /workspace \
+          --only-verified \
+          --fail \
+          --json

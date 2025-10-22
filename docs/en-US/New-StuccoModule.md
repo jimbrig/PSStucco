@@ -1,6 +1,6 @@
 ---
-external help file: Stucco-help.xml
-Module Name: Stucco
+external help file: PSStucco-help.xml
+Module Name: PSStucco
 online version:
 schema: 2.0.0
 ---
@@ -15,13 +15,13 @@ Creates a new module based on the Stucco module template
 ### notemplate (Default)
 ```
 New-StuccoModule [-DestinationPath] <String> [-TemplateParameters <Hashtable>] [-Force] [-NoLogo] [-PassThru]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### template
 ```
 New-StuccoModule [-DestinationPath] <String> -Template <PSObject> [-TemplateParameters <Hashtable>] [-Force]
- [-NoLogo] [-PassThru] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-NoLogo] [-PassThru] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -150,6 +150,21 @@ Prompts you for confirmation before running the cmdlet.
 Type: SwitchParameter
 Parameter Sets: (All)
 Aliases: cf
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ProgressAction
+{{ Fill ProgressAction Description }}
+
+```yaml
+Type: ActionPreference
+Parameter Sets: (All)
+Aliases: proga
 
 Required: False
 Position: Named

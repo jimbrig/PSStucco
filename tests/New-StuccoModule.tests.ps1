@@ -36,8 +36,8 @@ Describe 'New-StuccoModule' {
             $templateResult.Success         | Should -Be $true
 
             # Validate some module contents are there
-            (Test-Path $templateTestModulePath/.devcontainer)   | Should -Be $true
-            (Test-Path $templateTestModulePath/$testModuleName) | Should -Be $true
+            (Test-Path $templateTestModulePath/.devcontainer)                | Should -Be $true
+            (Test-Path "$templateTestModulePath/src/$testModuleName")       | Should -Be $true
         }
     }
 
@@ -48,8 +48,8 @@ Describe 'New-StuccoModule' {
             $noTemplateResult.Success         | Should -Be $true
 
             # Validate some module contents are there
-            (Test-Path $NoTemplateTestModulePath/.devcontainer)   | Should -Be $true
-            (Test-Path $NoTemplateTestModulePath/$testModuleName) | Should -Be $true
+            (Test-Path $NoTemplateTestModulePath/.devcontainer)                | Should -Be $true
+            (Test-Path "$NoTemplateTestModulePath/src/$testModuleName")       | Should -Be $true
         }
     }
 }
