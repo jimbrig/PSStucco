@@ -1,0 +1,81 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+
+    - name: Install MkDocs and Dependencies
+      run: |
+        pip install mkdocs mkdocs-material mkdocs-mermaid2-plugin
+
+    - name: Setup PowerShell
+      shell: pwsh
+      run: |
+        Install-PSResource -Name platyPS -Scope CurrentUser -TrustRepository
+
+    - name: Generate PowerShell Help Documentation
+      shell: pwsh
+      run: |
+        Import-Module ./Output/*/*.psd1 -Force
+        $null = New-Item -Path ./docs/en-US -ItemType Directory -Force
+        New-MarkdownHelp -Module $(Get-Module | Where-Object Path -like "*Output*").Name -OutputFolder ./docs/en-US -Force
+
+    - name: Build MkDocs Site
+      run: mkdocs build --strict
+
+    - name: Upload Documentation Artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./site
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

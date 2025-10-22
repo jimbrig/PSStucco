@@ -1,17 +1,17 @@
 @{
     RootModule        = 'PSStucco.psm1'
-    ModuleVersion     = '0.6.0'
+    ModuleVersion     = '1.0.0'
     GUID              = '24effa48-ac05-4efd-872d-40d556089ce0'
     Author            = 'Jimmy Briggs'
     CompanyName       = 'Community'
     Copyright         = '(c) Jimmy Briggs. All rights reserved.'
-    Description       = 'An opinionated Plaster template for high-quality PowerShell modules'
-    PowerShellVersion = '3.0'
+    Description       = 'A modern, opinionated Plaster template for high-quality PowerShell modules with contemporary tooling and CI/CD'
+    PowerShellVersion = '7.0'
     RequiredModules   = @(
-        @{ModuleName = 'BuildHelpers'}
-        @{ModuleName = 'Plaster'}
-        @{ModuleName = 'psake'}
-        @{ModuleName = 'PowerShellBuild'}
+        @{ModuleName = 'BuildHelpers'; ModuleVersion = '0.0.0'}
+        @{ModuleName = 'Plaster'; ModuleVersion = '1.1.4'}
+        @{ModuleName = 'psake'; ModuleVersion = '0.0.0'}
+        @{ModuleName = 'PowerShellBuild'; ModuleVersion = '0.0.0'}
     )
     FunctionsToExport = @(
         'Get-StuccoTemplate'

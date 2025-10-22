@@ -1,0 +1,174 @@
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - '*.md'
+    - docs/*
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - '*.md'
+    - docs/*
+
+variables:
+  buildConfiguration: 'Release'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+stages:
+- stage: Test
+  displayName: 'Test Stage'
+  jobs:
+  - job: TestJob
+    displayName: 'Test Job'
+    strategy:
+      matrix:
+        windows_ps7:
+          imageName: 'windows-latest'
+          powershellVersion: '7.x'
+        linux_ps7:
+          imageName: 'ubuntu-latest'
+          powershellVersion: '7.x'
+        macos_ps7:
+          imageName: 'macOS-latest'
+          powershellVersion: '7.x'
+    pool:
+      vmImage: $(imageName)
+
+    steps:
+    - task: Cache@2
+      displayName: 'Cache PowerShell Modules'
+      inputs:
+        key: 'modules | "$(Agent.OS)" | requirements.psd1'
+        restoreKeys: |
+          modules | "$(Agent.OS)"
+          modules
+        path: '$(Pipeline.Workspace)/.powershell'
+
+    - task: PowerShell@2
+      displayName: 'Bootstrap Dependencies'
+      inputs:
+        filePath: './build.ps1'
+        arguments: '-Bootstrap -Verbose'
+        pwsh: true
+
+    - task: PowerShell@2
+      displayName: 'Run Tests'
+      inputs:
+        filePath: './build.ps1'
+        arguments: '-Task Test -Verbose'
+        pwsh: true
+
+    - task: PowerShell@2
+      displayName: 'Run Script Analyzer'
+      inputs:
+        filePath: './build.ps1'
+        arguments: '-Task Analyze -Verbose'
+        pwsh: true
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+      inputs:
+        testResultsFormat: 'NUnit'
+        testResultsFiles: 'out/testResults.xml'
+        failTaskOnFailedTests: true
+          - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Code Coverage'
+      condition: always()
+      inputs:
+        summaryFileLocation: 'out/coverage.xml'
+        codecoverageTool: 'Cobertura'
+
+- stage: Security
+  displayName: 'Security Scan'
+  dependsOn: []
+  jobs:
+  - job: SecurityScan
+    displayName: 'Security Scan Job'
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - task: PowerShell@2
+      displayName: 'Run Security Analysis'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSGallery -ReportSummary
+          if ($results) {
+            $results | ConvertTo-Json | Out-File -FilePath 'security-results.json'
+            Write-Host "Security issues found:"
+            $results | Format-Table
+            exit 1
+          }
+        pwsh: true
+
+- stage: Build
+  displayName: 'Build Stage'
+  dependsOn:
+  - Test
+  - Security
+  jobs:
+  - job: BuildJob
+    displayName: 'Build Job'
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - task: PowerShell@2
+      displayName: 'Bootstrap Dependencies'
+      inputs:
+        filePath: './build.ps1'
+        arguments: '-Bootstrap -Verbose'
+        pwsh: true
+
+    - task: PowerShell@2
+      displayName: 'Build Module'
+      inputs:
+        filePath: './build.ps1'
+        arguments: '-Task Build -Verbose'
+        pwsh: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifacts'
+      inputs:
+        pathToPublish: 'out'
+        artifactName: 'module'
+
+- stage: Deploy
+  displayName: 'Deploy Stage'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToPSGallery
+    displayName: 'Deploy to PowerShell Gallery'
+    environment: 'Production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadBuildArtifacts@0
+            displayName: 'Download Build Artifacts'
+            inputs:
+              artifactName: 'module'
+              downloadPath: '$(System.ArtifactsDirectory)'
+
+          - task: PowerShell@2
+            displayName: 'Publish to PowerShell Gallery'
+            inputs:
+              filePath: './build.ps1'
+              arguments: '-Task Publish -Verbose'
+              pwsh: true
+            env:
+              PSGALLERY_API_KEY: $(PSGALLERY_API_KEY)

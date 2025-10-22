@@ -4,6 +4,17 @@ Properties {
     $PSBPreference.Help.DefaultLocale = 'en-US'
     $PSBPreference.Test.OutputFile = 'out/testResults.xml'
     $PSBPreference.Build.CopyDirectories = @()
+
+    # Configure for src/ directory structure
+    $PSBPreference.General.SrcRootDir = (Join-Path $PSScriptRoot 'src/PSStucco')
+    $PSBPreference.General.ModuleManifestPath = (Join-Path $PSScriptRoot 'src/PSStucco/PSStucco.psd1')
+    $PSBPreference.General.ModuleName = 'PSStucco'
+
+    # Also set BuildHelpers env variables for compatibility
+    $env:BHPSModulePath = (Join-Path $PSScriptRoot 'src/PSStucco')
+    $env:BHPSModuleManifest = (Join-Path $PSScriptRoot 'src/PSStucco/PSStucco.psd1')
+    $env:BHProjectName = 'PSStucco'
+
     # Publish settings
     if ($galleryApiKey) {
         $PSBPreference.Publish.PSRepositoryApiKey = $galleryApiKey.GetNetworkCredential().password
@@ -34,7 +45,7 @@ Task TestGHAction -depends Build, InstallAct {
 
 Task GenerateYAMLHelp -depends GenerateMarkdown {
     If (-not (Get-Command New-YamlHelp -CommandType Function -ErrorAction SilentlyContinue)) {
-        Install-Module -Name platyPS -Repository PSGallery -Scope CurrentUser -Force
+        Install-PSResource -Name platyPS -Repository PSGallery -Scope CurrentUser -TrustRepository
     }
     New-YamlHelp -Path './Docs/en-US' -OutputFolder './Docs/en-US' -Force
 }

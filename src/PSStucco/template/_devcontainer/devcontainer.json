@@ -1,0 +1,59 @@
+{
+	"name": "PowerShell Module Development",
+	"image": "mcr.microsoft.com/devcontainers/powershell:latest",
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
+		}
+	},
+
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "pwsh",
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash",
+						"icon": "terminal-bash"
+					},
+					"zsh": {
+						"path": "/bin/zsh"
+					},
+					"pwsh": {
+						"path": "/usr/bin/pwsh",
+						"icon": "terminal-powershell"
+					}
+				},
+				"powershell.powerShellDefaultVersion": "PowerShell (x64)",
+				"files.eol": "\n"
+			},
+			"extensions": [
+				"ms-vscode.powershell",
+				"davidanson.vscode-markdownlint",
+				"yzhang.markdown-all-in-one",
+				"eamodio.gitlens",
+				"github.vscode-pull-request-github",
+				"streetsidesoftware.code-spell-checker",
+				"editorconfig.editorconfig",
+				"ryanluker.vscode-coverage-gutters",
+				"github.vscode-github-actions",
+				"ms-vscode.vscode-sarif-viewer",
+				"redhat.vscode-yaml"
+			]
+		}
+	},
+"containerEnv": {
+	"DOTNET_NOLOGO": "true",
+	"DOTNET_CLI_TELEMETRY_OPTOUT": "true"
+},
+"remoteUser": "vscode",
+"postCreateCommand": "pwsh -c './build.ps1 -Bootstrap -Verbose'",
+"forwardPorts": [],
+"portsAttributes": {},
+"mounts": [
+	"source=${localWorkspaceFolder}/.git,target=/workspaces/${localWorkspaceFolderBasename}/.git,type=bind,consistency=cached"
+]
+}

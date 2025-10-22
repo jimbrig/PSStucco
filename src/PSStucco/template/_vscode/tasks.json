@@ -1,0 +1,212 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+
+    // PowerShell configuration for different platforms
+    "windows": {
+        "options": {
+            "shell": {
+                "executable": "pwsh.exe",
+                "args": [ "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command" ]
+            }
+        }
+    },
+    "linux": {
+        "options": {
+            "shell": {
+                "executable": "/usr/bin/pwsh",
+                "args": [ "-NoProfile", "-Command" ]
+            }
+        }
+    },
+    "osx": {
+        "options": {
+            "shell": {
+                "executable": "/usr/local/bin/pwsh",
+                "args": [ "-NoProfile", "-Command" ]
+            }
+        }
+    },
+
+    "tasks": [
+        {
+            "label": "Bootstrap",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Bootstrap -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Clean -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Build -Verbose",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Test",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Test -Verbose",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": "$pester"
+        },
+        {
+            "label": "Test with Coverage",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task TestWithCoverage -Verbose",
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": "$pester"
+        },
+        {
+            "label": "Analyze",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Analyze -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Format Code",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Format -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Generate Docs",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Docs -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Package",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Package -Verbose",
+            "group": "build",
+            "dependsOn": [
+                "Build",
+                "Test",
+                "Analyze"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Publish",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Publish -Verbose",
+            "group": "build",
+            "dependsOn": "Package",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Full CI",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Task Clean, Build, Test, Analyze -Verbose",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$pester"
+            ]
+        },
+        {
+            "label": "Watch Tests",
+            "type": "shell",
+            "command": "while ($true) { if ((Get-ChildItem -Path . -Include '*.ps1', '*.psm1', '*.psd1' -Recurse | Where-Object LastWriteTime -gt (Get-Date).AddSeconds(-2))) { Clear-Host; Invoke-Pester -Path ./tests -PassThru }; Start-Sleep 2 }",
+            "group": "test",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated"
+            },
+            "problemMatcher": "$pester"
+        },
+        {
+            "label": "Start Dev Environment",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.ps1 -Bootstrap && Import-Module ${workspaceFolder}/Output/*/*.psd1 -Force",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}

@@ -1,0 +1,58 @@
+# EditorConfig helps maintain consistent coding styles
+# See https://editorconfig.org for more information
+
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# PowerShell files
+[*.{ps1,psm1,psd1,pssc,psrc}]
+indent_size = 4
+
+# C# files (for classes)
+[*.cs]
+indent_size = 4
+
+# YAML files
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_size = 2
+
+# XML files
+[*.{xml,csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_size = 2
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# Batch files
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# Shell scripts
+[*.sh]
+end_of_line = lf
+
+# Makefiles
+[{Makefile,makefile}]
+indent_style = tab
+
+# Documentation
+[*.{rst,txt}]
+indent_size = 4
+
+# Configuration files
+[*.{ini,cfg,conf}]
+indent_size = 4
